@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"os"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
@@ -28,33 +29,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Is it a key press?
 	case tea.KeyMsg:
-
+		char := msg.String()
 		// Cool, what was the actual key pressed?
-		switch msg.String() {
+		switch {
 
+		case len(char) == 1:
+			r := rune(char[0])
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				m.word[m.cursor] = r
+
+				if m.cursor < len(m.word)-1 {
+					m.cursor++
+				}
+			}
 		// These keys should exit the program.
-		case "ctrl+c", "q":
+		case char == "ctrl+c":
 			return m, tea.Quit
 
 		// The "up" and "k" keys move the cursor up
-		case "left", "h":
+		case char == "left":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
 		// The "down" and "j" keys move the cursor down
-		case "right", "l":
+		case char == "right":
 			if m.cursor < len(m.word)-1 {
 				m.cursor++
 			}
 
-		case "o":
-			m.word[m.cursor] = 'o'
-		case "backspace":
+		case char == "backspace":
 			m.word[m.cursor] = ' '
+			if m.cursor > 0 {
+				m.cursor--
+			}
+
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
-		case "enter", " ":
+		case char == "enter":
 			_, ok := m.selected[m.cursor]
 			if ok {
 				delete(m.selected, m.cursor)
@@ -84,12 +96,12 @@ func (m model) View() string {
 		if m.cursor == i {
 			s += "^"
 		} else {
-			s += " "
+			s += "-"
 		}
 	}
 
 	// The footer
-	s += "\nPress q to quit.\n"
+	s += "\nPress ctrl+c to quit.\n"
 
 	// Send the UI for rendering
 	return s
