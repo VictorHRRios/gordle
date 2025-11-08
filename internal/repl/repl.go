@@ -11,9 +11,12 @@ import (
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
-	handler := handlers.Init()
+	h := handlers.Init()
 	for {
-		io.WriteString(out, "> ")
+		if h.Status() {
+			io.WriteString(out, color.BlueString("GAME "))
+		}
+		io.WriteString(out, color.BlueString("> "))
 		scanned := scanner.Scan()
 		if !scanned {
 			return
@@ -24,12 +27,13 @@ func Start(in io.Reader, out io.Writer) {
 
 		command := commands[0]
 		params := commands[1:]
-		output, err := handler.Exec(command, params...)
+		output, err := h.Exec(command, params...)
 		if err != nil {
 			io.WriteString(out, color.RedString(err.Error()))
 			io.WriteString(out, "\n")
 		}
 
 		io.WriteString(out, output)
+		io.WriteString(out, "\n")
 	}
 }

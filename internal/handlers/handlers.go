@@ -10,8 +10,8 @@ import (
 )
 
 type Handler struct {
-	handlerFns  map[string]Command
-	currentWord *string
+	handlerFns map[string]Command
+	session    words.Session
 }
 
 type Command struct {
@@ -24,16 +24,28 @@ func Init() *Handler {
 	h.handlerFns = make(map[string]Command)
 	h.RegisterCommand("exit", "exit the application", exitCommand)
 	h.RegisterCommand("start", "start the game", h.startCommand)
+	h.RegisterCommand("end", "end the game", h.endCommand)
 	h.RegisterCommand("help", "get help", h.helpCommand)
 	return h
 }
 
+func (h *Handler) Guess(name string, params ...string) (string, error) {
+	return h.session.MakeGuess([]byte(name)), nil
+}
+
 func (h *Handler) Exec(name string, params ...string) (string, error) {
 	exec, ok := h.handlerFns[name]
-	if !ok {
-		return "", errors.New("command not found")
+	if ok {
+		return exec.Action()
 	}
-	return exec.Action()
+	if h.session.Active && len(name) == 5 {
+		return h.Guess(name)
+	}
+	return "", errors.New("command not found")
+}
+
+func (h *Handler) Status() bool {
+	return h.session.Active
 }
 
 func NewCommand(doc string, fn func(...string) (string, error)) Command {
@@ -48,12 +60,17 @@ func (h *Handler) RegisterCommand(name string, doc string, fn func(...string) (s
 }
 
 func (h *Handler) startCommand(params ...string) (string, error) {
-	word, err := words.GetWord()
+	var err error
+	h.session, err = words.StartSession()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
-	h.currentWord = &word
-	return *h.currentWord, nil
+	return "game started...", nil
+}
+
+func (h *Handler) endCommand(params ...string) (string, error) {
+	h.session.EndSession()
+	return "ok", nil
 }
 
 func exitCommand(params ...string) (string, error) {
