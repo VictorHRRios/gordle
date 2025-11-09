@@ -60,8 +60,12 @@ func (h *Handler) RegisterCommand(name string, doc string, fn func(...string) (s
 }
 
 func (h *Handler) startCommand(params ...string) (string, error) {
-	var err error
-	h.session, err = words.StartSession()
+	word, err := words.GetWord()
+	if err != nil {
+		return "", err
+	}
+	
+	h.session, err = words.StartSession(word)
 	if err != nil {
 		return "", err
 	}

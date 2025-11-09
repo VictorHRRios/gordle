@@ -1,18 +1,29 @@
 package words
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/fatih/color"
+	//"github.com/fatih/color"
 )
 
 const WORD_API = "https://random-word-api.herokuapp.com/word?length=5"
 
+const (
+	UNKNOWN int = iota
+	GUESSED
+	CHARACTER
+	CHAR_AND_PLACEMENT
+)
+
 type Session struct {
 	Active      bool
-	CurrentWord []byte
+	CurrentWord map[byte][]int
 	GuessNum    int
-	Guess       []byte
+	Guess       map[byte]string
 }
 
 func (s *Session) MakeGuess(guess []byte) string {
@@ -26,46 +37,72 @@ func (s *Session) MakeGuess(guess []byte) string {
 		s.EndSession()
 		return "lost the game :("
 	}
-	for charIdx, char := range s.CurrentWord {
-		if guess[charIdx] != char {
-			guess[charIdx] = '#'
+	var returnedGuess bytes.Buffer
+	for key, value := range guess {
+		if list, ok := s.CurrentWord[value]; ok {
+			found := false
+			for _, val := range list {
+				if key == val {
+					found = true
+				}
+			}
+			if found {
+				returnedGuess.WriteString(color.GreenString(string(value)))
+			} else {
+				returnedGuess.WriteString(color.YellowString(string(value)))
+			}
+		} else {
+			returnedGuess.WriteString(color.BlackString(string(value)))
 		}
 	}
-	s.Guess = guess
-	return string(s.Guess)
+	return returnedGuess.String()
 }
 
-func StartSession() (Session, error) {
-	word, err := GetWord()
-	if err != nil {
-		return Session{}, err
+func StartSession(word []byte) (Session, error) {
+	currentWord := map[byte][]int{}
+	for cIdx, c := range word {
+		word, ok := currentWord[c]
+		if !ok {
+			currentWord[c] = []int{cIdx}
+		}
+		currentWord[c] = append(word, cIdx)
 	}
 	return Session{
 		Active:      true,
-		CurrentWord: []byte(word),
+		CurrentWord: currentWord,
 	}, nil
 }
 
 func (s *Session) EndSession() {
 	s.Active = false
-	s.Guess = nil
+	s.Guess = map[byte]string{}
 	s.GuessNum = 0
-	s.CurrentWord = nil
+	s.CurrentWord = map[byte][]int{}
 }
 
-func GetWord() (string, error) {
+func ConvertWord(mapToConvert map[byte][]int) string {
+	out := make([]byte, 5)
+	for key, l := range mapToConvert {
+		for _, value := range l {
+			out[value] = key
+		}
+	}
+	return string(out)
+}
+
+func GetWord() ([]byte, error) {
 	resp, err := http.Get(WORD_API)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	decoder := json.NewDecoder(resp.Body)
 	word := []string{}
 	if err := decoder.Decode(&word); err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(word) != 1 {
-		return "", errors.New("got an unexpected response from external api")
+		return nil, errors.New("got an unexpected response from external api")
 	}
-	return word[0], nil
+	return []byte(word[0]), nil
 }
